@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:telephony/telephony.dart';
@@ -20,6 +22,8 @@ class TimerController extends GetxController {
   var mapUrl="".obs;
   late StreamSubscription<Position> positionStream;
   late StreamSubscription<Position> _streamSubscription;
+
+  RxBool dialogClose=false.obs;
 
   @override
   void onInit() {
@@ -87,13 +91,13 @@ class TimerController extends GetxController {
     });
   }
 
-  void startTimer() {
+  void startTimer(BuildContext context) {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       seconds.value--;
       if (seconds.value < 1) {
         seconds.value = 0;
         print("Time");
-        sendSMS();
+        sendSMS(context);
         timer.cancel();
       }
     });
@@ -105,23 +109,43 @@ class TimerController extends GetxController {
     seconds.value = 10;
   }
 
-  void sendSMS() async {
+  void sendSMS(context) async {
     bool? permissionsGranted = await telephony.requestPhoneAndSmsPermissions;
     print(permissionsGranted);
     permissionsGranted == true
         ? telephony.sendSms(
-            to: "01788810008",
+            to: "123456",
             message: mapUrl.value,
             statusListener: (SendStatus val) {
-              //print("statua $val");
               if (val.toString() == "SendStatus.SENT") {
                 print("SENDING");
+                showToast(message: "SMS SENDING....",backColor: Colors.green);
+                dialogClose.value=true;
               } else if (val.toString() == "SendStatus.DELIVERED") {
                 print("SUCCESS");
+                showToast(message: "SMS SUCCESSFULLY SEND",backColor: Colors.green);
+                dialogClose.value=true;
               } else {
+                showToast(message: "SMS SENS FAILED",backColor: Colors.red);
+                dialogClose.value=true;
                 print("FAILED");
               }
             })
         : null;
   }
+
+
+}
+
+
+Future<bool?> showToast({message,backColor}) {
+  return Fluttertoast.showToast(
+      msg: message,
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      timeInSecForIosWeb: 1,
+      backgroundColor: backColor,
+      textColor: Colors.white,
+      fontSize: 16.0
+  );
 }

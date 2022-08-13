@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:telephony/telephony.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_accelemotor_location/timer_controller.dart';
-import 'package:flutter_sms/flutter_sms.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -34,9 +33,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
 
   var seconds = 10;
 
-  var timerC=Get.put(TimerController());
-
-
+  var timerC = Get.put(TimerController());
 
   @override
   void initState() {
@@ -69,12 +66,11 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
     double totalTimeInSeconds = totalTime.inMilliseconds / 1000;
     double heightInMeters = (GRAVITATIONAL_FORCE * pow(totalTimeInSeconds, 2)) / 8;
 
-
     showDialog(
       barrierDismissible: false,
       context: context,
       builder: (BuildContext context) {
-        timerC.startTimer();
+        timerC.startTimer(context);
         return Dialog(
           child: SizedBox(
             child: Padding(
@@ -84,6 +80,29 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                        onTap: () {
+                          timerC.stopTimer();
+                          startTime = null;
+                          endTime = null;
+                          print(accelValuesForAnalysis.toString());
+                          accelValuesForAnalysis.clear();
+                          setState(() {
+                            isBeingThrown = false;
+                          });
+                          Navigator.of(context).pop();
+                        },
+                        child: const Icon(
+                          Icons.cancel,
+                          color: Colors.black,
+                          size: 30,
+                        )),
+                  ),
+                  const SizedBox(
+                    height: 10.0,
+                  ),
                   Text(
                     "It seems your device has fallen.Are you okay?",
                     style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500),
@@ -92,9 +111,18 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
                   const SizedBox(
                     height: 30,
                   ),
-                  Obx(()=>Container(height: 35,width: 35,padding: const EdgeInsets.all(5.0),decoration: BoxDecoration(
-                    shape: BoxShape.circle,border: Border.all(color: Colors.black)
-                  ),child: Center(child: Text("${timerC.seconds.value}",style: TextStyle(fontSize: 15.0,fontWeight: FontWeight.bold),))),),
+                  Obx(
+                    () => Container(
+                        height: 35,
+                        width: 35,
+                        padding: const EdgeInsets.all(5.0),
+                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black)),
+                        child: Center(
+                            child: Text(
+                          "${timerC.seconds.value}",
+                          style: const TextStyle(fontSize: 15.0, fontWeight: FontWeight.bold),
+                        ))),
+                  ),
                   const SizedBox(
                     height: 30,
                   ),
@@ -140,64 +168,74 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
 
   bool _isElevated = true;
 
-
   @override
   Widget build(BuildContext context) {
     final accelerometer = _accelerometerValues?.map((double v) => v.toStringAsFixed(1)).toList();
 
     return Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0.0,
+          actions: [
+            IconButton(
+                onPressed: ()=>showToast(message: "Feature is under development",backColor: Colors.lightBlue),
+                icon: const Icon(
+                  Icons.sticky_note_2_outlined,
+                  color: Colors.black,
+                  size: 28,
+                )),
+            Container(width: 5.0,),
+          ],
+        ),
         body: SizedBox.expand(
             child: Container(
-      color: Colors.grey[300],
-      child: Center(
-        child: GestureDetector(
-          onTap: () {
-            setState(() {
-
-              // _throwHasEnded();
-              //timerC.startTimer();
-              isBeingThrown = true;
-              startTime = DateTime.now();
-            });
-          },
-          child: (!isBeingThrown)
-              ? AnimatedContainer(
-                  duration: const Duration(milliseconds: 500),
-                  height: 200,
-                  width: 200,
-                  child: const Center(
-                      child: Text(
-                    "GO",
-                    style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                  )),
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
-                    BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
-                    const BoxShadow(color: Colors.green, offset: Offset(-4, -4), blurRadius: 15, spreadRadius: 1)
-                  ]),
-                )
-              : AnimatedContainer(
-                  duration: const Duration(milliseconds: 500),
-                  height: 200,
-                  width: 200,
-                  child: const Center(
-                      child: Text(
-                    "Sensor Starts Working",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  )),
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
-                    BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
-                    BoxShadow(color: Colors.red, offset: Offset(-2, -2), blurRadius: 15, spreadRadius: 2)
-                  ]),
-                ),
-        ),
-      ),
-      //alignment: Alignment.center,
-    )));
+          color: Colors.white,
+          child: Center(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  // _throwHasEnded();
+                  //timerC.startTimer();
+                  isBeingThrown = true;
+                  startTime = DateTime.now();
+                });
+              },
+              child: (!isBeingThrown)
+                  ? AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      height: 200,
+                      width: 200,
+                      child: const Center(
+                          child: Text(
+                        "GO",
+                        style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                      )),
+                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
+                        BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
+                        const BoxShadow(color: Colors.green, offset: Offset(-4, -4), blurRadius: 15, spreadRadius: 1)
+                      ]),
+                    )
+                  : AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      height: 200,
+                      width: 200,
+                      child: const Center(
+                          child: Text(
+                        "Sensor Starts Working",
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      )),
+                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
+                        BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
+                        BoxShadow(color: Colors.red, offset: Offset(-2, -2), blurRadius: 15, spreadRadius: 2)
+                      ]),
+                    ),
+            ),
+          ),
+          //alignment: Alignment.center,
+        )));
   }
 }
-
-
 
 /*Widget resetButton = TextButton(
       child: const Text("I'm okay"),
