@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:background_sms/background_sms.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_accelemotor_location/timer_controller.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 class SensorTestScreen extends StatefulWidget {
@@ -14,7 +17,7 @@ class SensorTestScreen extends StatefulWidget {
   _SensorTestScreenState createState() => _SensorTestScreenState();
 }
 
-class _SensorTestScreenState extends State<SensorTestScreen> {
+class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBindingObserver {
   double x = 0, y = 0, z = 0;
   String direction = "none";
 
@@ -24,11 +27,12 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
   List<double>? _magnetometerValues;
   final _streamSubscriptions = <StreamSubscription<dynamic>>[];
 
+
   DateTime? startTime;
   DateTime? endTime;
   bool isBeingThrown = false;
   final double GRAVITATIONAL_FORCE = 9.80665;
-  final double DECELERATION_THRESHOLD = 10; // <---- experimental
+  final double DECELERATION_THRESHOLD = 4; // <---- experimental
   List<double> accelValuesForAnalysis = <double>[];
 
   var seconds = 10;
@@ -37,26 +41,80 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
 
   @override
   void initState() {
-    _streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) {
-      if (isBeingThrown) {
-        double x_total = pow(event.x, 2).toDouble();
-        double y_total = pow(event.y, 2).toDouble();
-        double z_total = pow(event.z, 2).toDouble();
+    WidgetsBinding.instance!.addObserver(this);
 
-        double totalXYZAcceleration = sqrt(x_total + y_total + z_total);
-
-        // only needed because we are not using UserAccelerometerEvent
-        // (because it was acting weird on my test phone Galaxy S5)
-        double accelMinusGravity = totalXYZAcceleration - GRAVITATIONAL_FORCE;
-
-        accelValuesForAnalysis.add(accelMinusGravity);
-        if (accelMinusGravity > DECELERATION_THRESHOLD) {
-          _throwHasEnded();
-        }
-      }
-    }));
+    // _streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) {
+    //     if (isBeingThrown) {
+    //     double x_total = pow(event.x, 2).toDouble();
+    //     double y_total = pow(event.y, 2).toDouble();
+    //     double z_total = pow(event.z, 2).toDouble();
+    //
+    //     double totalXYZAcceleration = sqrt(x_total + y_total + z_total);
+    //
+    //     // only needed because we are not using UserAccelerometerEvent
+    //     // (because it was acting weird on my test phone Galaxy S5)
+    //     double accelMinusGravity = totalXYZAcceleration - GRAVITATIONAL_FORCE;
+    //
+    //     accelValuesForAnalysis.add(accelMinusGravity);
+    //     if (accelMinusGravity > DECELERATION_THRESHOLD) {
+    //       _throwHasEnded();
+    //     }
+    //   }
+    // }));
 
     super.initState();
+  }
+
+  _sendMessage(String phoneNumber, String message, {int? simSlot}) async {
+    var result = await BackgroundSms.sendMessage(phoneNumber: phoneNumber, message: message, simSlot: simSlot);
+    if (result == SmsStatus.sent) {
+      print("Sent");
+    } else {
+      print("Failed");
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // TODO: implement didChangeAppLifecycleState
+    super.didChangeAppLifecycleState(state);
+
+    final isBackGround = state == AppLifecycleState.paused;
+
+    if (isBackGround) {
+      print("App is Background");
+      _streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) async {
+        if (isBeingThrown) {
+          // print("CALL EVENT");
+          double x_total = pow(event.x, 2).toDouble();
+          double y_total = pow(event.y, 2).toDouble();
+          double z_total = pow(event.z, 2).toDouble();
+
+          double totalXYZAcceleration = sqrt(x_total + y_total + z_total);
+
+          // only needed because we are not using UserAccelerometerEvent
+          // (because it was acting weird on my test phone Galaxy S5)
+          double accelMinusGravity = totalXYZAcceleration - GRAVITATIONAL_FORCE;
+
+          accelValuesForAnalysis.add(accelMinusGravity);
+          print("Calculation ${accelMinusGravity.toString()}");
+
+          if (accelMinusGravity > DECELERATION_THRESHOLD) {
+            // isBeingThrown = false;
+            endTime = DateTime.now();
+            Duration totalTime = DateTime.now().difference(startTime!);
+            double totalTimeInSeconds = totalTime.inMilliseconds / 1000;
+            double heightInMeters = (GRAVITATIONAL_FORCE * pow(totalTimeInSeconds, 2)) / 8;
+
+            if (await _isPermissionGranted()) {
+              _sendMessage("01793361288", "This is user's current location\n${timerC.mapUrl.value}");
+            }
+
+            print("Calculationssssssssss ${accelValuesForAnalysis.toString()}");
+          }
+        }
+      }));
+    }
   }
 
   void _throwHasEnded() {
@@ -159,6 +217,8 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance!.removeObserver(this);
+
     // cancel the stream from the accelerometer somehow!! ugh!!!
     for (StreamSubscription<dynamic> subscription in _streamSubscriptions) {
       subscription.cancel();
@@ -167,6 +227,12 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
   }
 
   bool _isElevated = true;
+
+  _getPermission() async => await [
+        Permission.sms,
+      ].request();
+
+  Future<bool> _isPermissionGranted() async => await Permission.sms.status.isGranted;
 
   @override
   Widget build(BuildContext context) {
@@ -178,13 +244,17 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
           elevation: 0.0,
           actions: [
             IconButton(
-                onPressed: ()=>showToast(message: "Feature is under development",backColor: Colors.lightBlue),
+                onPressed: ()async {
+                  await FirebaseAuth.instance.signOut();
+                },
                 icon: const Icon(
-                  Icons.sticky_note_2_outlined,
+                  Icons.exit_to_app,
                   color: Colors.black,
                   size: 28,
                 )),
-            Container(width: 5.0,),
+            Container(
+              width: 5.0,
+            ),
           ],
         ),
         body: SizedBox.expand(
@@ -198,6 +268,65 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
                   //timerC.startTimer();
                   isBeingThrown = true;
                   startTime = DateTime.now();
+
+                  showDialog(
+                    barrierDismissible: false,
+                    context: context,
+                    builder: (BuildContext context) {
+                      return Dialog(
+                        child: SizedBox(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: GestureDetector(
+                                      onTap: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Icon(
+                                        Icons.cancel,
+                                        color: Colors.black,
+                                        size: 30,
+                                      )),
+                                ),
+                                const SizedBox(
+                                  height: 30.0,
+                                ),
+                                Text(
+                                  "The sensor will run in the background.You can minimize your app.",
+                                  style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(
+                                  height: 30,
+                                ),
+                                MaterialButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _getPermission();
+                                  },
+                                  child: const Text(
+                                    "OKAY",
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10.0),
+                                  ),
+                                  splashColor: Colors.grey,
+                                  color: Colors.black,
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
                 });
               },
               child: (!isBeingThrown)
@@ -215,20 +344,26 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
                         const BoxShadow(color: Colors.green, offset: Offset(-4, -4), blurRadius: 15, spreadRadius: 1)
                       ]),
                     )
-                  : AnimatedContainer(
-                      duration: const Duration(milliseconds: 500),
-                      height: 200,
-                      width: 200,
-                      child: const Center(
-                          child: Text(
-                        "Sensor Starts Working",
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      )),
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
-                        BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
-                        BoxShadow(color: Colors.red, offset: Offset(-2, -2), blurRadius: 15, spreadRadius: 2)
-                      ]),
+                  : GestureDetector(
+                      onTap: () {
+                        isBeingThrown = false;
+                        setState(() {});
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 500),
+                        height: 200,
+                        width: 200,
+                        child: const Center(
+                            child: Text(
+                          "Sensor Starts Working",
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        )),
+                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
+                          BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
+                          BoxShadow(color: Colors.red, offset: Offset(-2, -2), blurRadius: 15, spreadRadius: 2)
+                        ]),
+                      ),
                     ),
             ),
           ),
@@ -236,35 +371,3 @@ class _SensorTestScreenState extends State<SensorTestScreen> {
         )));
   }
 }
-
-/*Widget resetButton = TextButton(
-      child: const Text("I'm okay"),
-      onPressed: () {
-        // startTime = null;
-        // endTime = null;
-        // print(accelValuesForAnalysis.toString());
-        // accelValuesForAnalysis.clear();
-        // Navigator.pop(context);
-        // setState(() {
-        //   isBeingThrown = false;
-        // });
-      },
-      onLongPress: () {},
-    );
-
-    AlertDialog alert = AlertDialog(
-      title: const Text(
-        "Alert",
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
-      ),
-      content: Text("Are you okay?"),
-      */ /*content: Text("total throw time in seconds was: " +
-          totalTimeInSeconds.toString() +
-          "\n" +
-          "Total height was: " +
-          heightInMeters.toString() +
-          " meters. \n"),*/ /*
-      actions: [
-        resetButton,
-      ],*/
-// );
