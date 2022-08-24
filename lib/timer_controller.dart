@@ -25,6 +25,11 @@ class TimerController extends GetxController {
 
   RxBool dialogClose=false.obs;
 
+  RxBool showSignInLoad=false.obs;
+  RxBool showRegInLoad=false.obs;
+
+
+
   @override
   void onInit() {
     super.onInit();

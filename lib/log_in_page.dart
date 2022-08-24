@@ -3,6 +3,7 @@ import 'package:flutter_accelemotor_location/auth_service.dart';
 import 'package:flutter_accelemotor_location/registration_page.dart';
 import 'package:flutter_accelemotor_location/tect_field_widet.dart';
 import 'package:flutter_accelemotor_location/timer_controller.dart';
+import 'package:get/get.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   var emailController = TextEditingController();
   var passwordController = TextEditingController();
 
+  var timerC = Get.put(TimerController());
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +40,6 @@ class _LoginPageState extends State<LoginPage> {
               sized5(),
               TextFieldWidget(
                 textEditingController: emailController,
-
               ),
               sized15(),
               const Text("Password"),
@@ -49,43 +50,50 @@ class _LoginPageState extends State<LoginPage> {
               ),
               sized15(),
               sized15(),
-              MaterialButton(
-                height: 45,
-                minWidth: double.infinity,
-                onPressed: () {
-                  if(emailController.text.isEmpty&&passwordController.text.isEmpty){
-                    showToast(message: "Insert your email & password", backColor: Colors.lightBlue);
-                    return;
-                  }
+              Obx(() => MaterialButton(
+                    height: 45,
+                    minWidth: double.infinity,
+                    onPressed: () {
+                      if (emailController.text.isEmpty && passwordController.text.isEmpty) {
+                        showToast(message: "Insert your email & password", backColor: Colors.lightBlue);
+                        return;
+                      }
 
-                  AuthService().signInWithGoogle(emailController.text, passwordController.text);
-                },
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                color: Colors.green,
-                child: const Text(
-                  "Log In",
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
+                      AuthService().signInWithGoogle(emailController.text, passwordController.text, timerC,context);
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    color: Colors.green,
+                    child: timerC.showSignInLoad.value == false
+                        ? const Text(
+                            "Log In",
+                            style: TextStyle(color: Colors.white),
+                          )
+                        : const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              backgroundColor: Colors.white,
+                            )),
+                  )),
               sized15(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                   const Text("  Don't have an account?  "),
-                   GestureDetector(
-                     onTap: (){
-                       Navigator.push(
-                         context,
-                         MaterialPageRoute(builder: (context) => const RegistrationPage()),
-                       );
-                     },
-                     child: const Text(
+                  const Text("  Don't have an account?  "),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const RegistrationPage()),
+                      );
+                    },
+                    child: const Text(
                       "Registration",
                       style: TextStyle(decoration: TextDecoration.underline, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                   ),
                 ],
               )
             ],

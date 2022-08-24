@@ -2,13 +2,18 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:background_sms/background_sms.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_accelemotor_location/profile_page.dart';
 import 'package:flutter_accelemotor_location/timer_controller.dart';
+import 'package:flutter_accelemotor_location/user_model.dart';
+import 'package:flutter_accelemotor_location/utils.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+
+import 'log_in_page.dart';
 
 class SensorTestScreen extends StatefulWidget {
   const SensorTestScreen({Key? key}) : super(key: key);
@@ -27,7 +32,6 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   List<double>? _magnetometerValues;
   final _streamSubscriptions = <StreamSubscription<dynamic>>[];
 
-
   DateTime? startTime;
   DateTime? endTime;
   bool isBeingThrown = false;
@@ -38,6 +42,15 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   var seconds = 10;
 
   var timerC = Get.put(TimerController());
+
+  Future<Users?> readUser() async {
+    final docUser = FirebaseFirestore.instance.collection("users").doc(boxStorage.read(UID));
+    final snapShot = await docUser.get();
+
+    if (snapShot.exists) {
+      return Users.fromJson(snapShot.data()!);
+    }
+  }
 
   @override
   void initState() {
@@ -107,7 +120,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
             double heightInMeters = (GRAVITATIONAL_FORCE * pow(totalTimeInSeconds, 2)) / 8;
 
             if (await _isPermissionGranted()) {
-              _sendMessage("01793361288", "This is user's current location\n${timerC.mapUrl.value}");
+              _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "This is user's current location\n${timerC.mapUrl.value}");
             }
 
             print("Calculationssssssssss ${accelValuesForAnalysis.toString()}");
@@ -238,17 +251,23 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   Widget build(BuildContext context) {
     final accelerometer = _accelerometerValues?.map((double v) => v.toStringAsFixed(1)).toList();
 
+    print("UID ${boxStorage.read(UID)}");
+
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0.0,
           actions: [
             IconButton(
-                onPressed: ()async {
-                  await FirebaseAuth.instance.signOut();
+                onPressed: () async {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfilePage()),
+                  );
+                  //await FirebaseAuth.instance.signOut();
                 },
                 icon: const Icon(
-                  Icons.exit_to_app,
+                  Icons.person,
                   color: Colors.black,
                   size: 28,
                 )),
@@ -258,116 +277,147 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
           ],
         ),
         body: SizedBox.expand(
-            child: Container(
-          color: Colors.white,
-          child: Center(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  // _throwHasEnded();
-                  //timerC.startTimer();
-                  isBeingThrown = true;
-                  startTime = DateTime.now();
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              color: Colors.white,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      // _throwHasEnded();
+                      //timerC.startTimer();
+                      isBeingThrown = true;
+                      startTime = DateTime.now();
 
-                  showDialog(
-                    barrierDismissible: false,
-                    context: context,
-                    builder: (BuildContext context) {
-                      return Dialog(
-                        child: SizedBox(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: GestureDetector(
-                                      onTap: () {
-                                        Navigator.of(context).pop();
+                      showDialog(
+                        barrierDismissible: false,
+                        context: context,
+                        builder: (BuildContext context) {
+                          return Dialog(
+                            child: SizedBox(
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: GestureDetector(
+                                          onTap: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: const Icon(
+                                            Icons.cancel,
+                                            color: Colors.black,
+                                            size: 30,
+                                          )),
+                                    ),
+                                    const SizedBox(
+                                      height: 30.0,
+                                    ),
+                                    Text(
+                                      "The sensor will run in the background.You can minimize your app.",
+                                      style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(
+                                      height: 30,
+                                    ),
+                                    MaterialButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _getPermission();
                                       },
-                                      child: const Icon(
-                                        Icons.cancel,
-                                        color: Colors.black,
-                                        size: 30,
-                                      )),
+                                      child: const Text(
+                                        "OKAY",
+                                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10.0),
+                                      ),
+                                      splashColor: Colors.grey,
+                                      color: Colors.black,
+                                    )
+                                  ],
                                 ),
-                                const SizedBox(
-                                  height: 30.0,
-                                ),
-                                Text(
-                                  "The sensor will run in the background.You can minimize your app.",
-                                  style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.w500),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(
-                                  height: 30,
-                                ),
-                                MaterialButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _getPermission();
-                                  },
-                                  child: const Text(
-                                    "OKAY",
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10.0),
-                                  ),
-                                  splashColor: Colors.grey,
-                                  color: Colors.black,
-                                )
-                              ],
+                              ),
                             ),
+                          );
+                        },
+                      );
+                    });
+                  },
+                  child: (!isBeingThrown)
+                      ? AnimatedContainer(
+                          duration: const Duration(milliseconds: 500),
+                          height: 200,
+                          width: 200,
+                          child: const Center(
+                              child: Text(
+                            "GO",
+                            style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                          )),
+                          decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
+                            BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
+                            const BoxShadow(color: Colors.green, offset: Offset(-4, -4), blurRadius: 15, spreadRadius: 1)
+                          ]),
+                        )
+                      : GestureDetector(
+                          onTap: () {
+                            isBeingThrown = false;
+                            setState(() {});
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 500),
+                            height: 200,
+                            width: 200,
+                            child: const Center(
+                                child: Text(
+                              "Sensor Starts Working",
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            )),
+                            decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
+                              BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
+                              BoxShadow(color: Colors.red, offset: Offset(-2, -2), blurRadius: 15, spreadRadius: 2)
+                            ]),
                           ),
                         ),
-                      );
-                    },
-                  );
-                });
-              },
-              child: (!isBeingThrown)
-                  ? AnimatedContainer(
-                      duration: const Duration(milliseconds: 500),
-                      height: 200,
-                      width: 200,
-                      child: const Center(
-                          child: Text(
-                        "GO",
-                        style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                      )),
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
-                        BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
-                        const BoxShadow(color: Colors.green, offset: Offset(-4, -4), blurRadius: 15, spreadRadius: 1)
-                      ]),
-                    )
-                  : GestureDetector(
-                      onTap: () {
-                        isBeingThrown = false;
-                        setState(() {});
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 500),
-                        height: 200,
-                        width: 200,
-                        child: const Center(
-                            child: Text(
-                          "Sensor Starts Working",
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        )),
-                        decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(50), boxShadow: [
-                          BoxShadow(color: Colors.grey[500]!, offset: const Offset(4, 4), blurRadius: 15, spreadRadius: 1),
-                          BoxShadow(color: Colors.red, offset: Offset(-2, -2), blurRadius: 15, spreadRadius: 2)
-                        ]),
-                      ),
-                    ),
+                ),
+              ),
+              //alignment: Alignment.center,
             ),
-          ),
-          //alignment: Alignment.center,
+            sized15(),
+            sized15(),
+            Text("sms will send to this number"),
+            sized15(),
+            FutureBuilder<Users?>(
+              future: readUser(),
+              builder: (BuildContext context, snapshot) {
+                if (snapshot.hasData) {
+                  final user = snapshot.data;
+                  boxStorage.write(SAVED_NUMBER, user?.phoneNumber);
+                  return user == null
+                      ? const Center(
+                          child: Text("No number found"),
+                        )
+                      : Text(
+                          "${user.phoneNumber}",
+                          style: TextStyle(fontWeight: FontWeight.w500, decoration: TextDecoration.underline),
+                        );
+                } else {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+              },
+            ),
+          ],
         )));
   }
 }

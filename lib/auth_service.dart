@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_accelemotor_location/sensor_test_screen.dart';
 import 'package:flutter_accelemotor_location/timer_controller.dart';
+import 'package:flutter_accelemotor_location/utils.dart';
 
 import 'log_in_page.dart';
 
@@ -18,14 +19,15 @@ class AuthService {
 
 
 
-  Future<void> addUser(name, email, uid) {
+  Future<void> addUser(name, email, uid,number) {
     // Call the user's CollectionReference to add a new user
     DocumentReference users = FirebaseFirestore.instance.collection('users').doc(uid);
 
     return users
         .set({
-          'full_name': name, // John Doe
+          'fullName': name, // John Doe
           'email': email, // Stokes and Sons
+          'phoneNumber': number, // Stokes and Sons
           'uid': uid // 42
         })
         .then((value) => print("User Added"))
@@ -45,7 +47,11 @@ class AuthService {
     );
   }
 
-  signUpWithGoogle(name,email, pass, context) async {
+  signUpWithGoogle(name,email, pass, context,number,TimerController timerC) async {
+
+
+    timerC.showRegInLoad.value=true;
+
     try {
       UserCredential credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
@@ -53,15 +59,17 @@ class AuthService {
       );
 
 
-      addUser(name,email,credential.user?.uid);
+      addUser(name,email,credential.user?.uid,number);
+      boxStorage.write(UID, credential.user?.uid);
       //log("Userssss$credential");
       showToast(message: 'Registration Successful', backColor: Colors.green);
-
+      timerC.showRegInLoad.value=false;
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const SensorTestScreen()),
       );
     } on FirebaseAuthException catch (e) {
+      timerC.showRegInLoad.value=false;
       if (e.code == 'email-already-in-use') {
         showToast(message: 'Email already in use.', backColor: Colors.red);
         return;
@@ -74,17 +82,26 @@ class AuthService {
     }
   }
 
-  signInWithGoogle(email, pass) async {
+  signInWithGoogle(email, pass,TimerController timerC,context) async {
+
+    timerC.showSignInLoad.value=true;
+
+
     try {
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: pass,
       );
-
-      showToast(message: 'Login Successful', backColor: Colors.red);
-
+      timerC.showSignInLoad.value=false;
+      showToast(message: 'Login Successful', backColor: Colors.green);
+      boxStorage.write(UID, credential.user?.uid);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SensorTestScreen()),
+      );
       log(" $credential");
     } on FirebaseAuthException catch (e) {
+      timerC.showSignInLoad.value=false;
       if (e.code == 'user-not-found') {
         showToast(message: 'No user found for that email.', backColor: Colors.red);
         return;
