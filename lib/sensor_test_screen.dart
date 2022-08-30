@@ -79,6 +79,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   }
 
   _sendMessage(String phoneNumber, String message, {int? simSlot}) async {
+    print(phoneNumber);
     var result = await BackgroundSms.sendMessage(phoneNumber: phoneNumber, message: message, simSlot: simSlot);
     if (result == SmsStatus.sent) {
       print("Sent");
@@ -254,6 +255,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
     print("UID ${boxStorage.read(UID)}");
 
     return Scaffold(
+      backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0.0,
@@ -394,7 +396,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
             ),
             sized15(),
             sized15(),
-            Text("sms will send to this number"),
+            const Text("sms will send to this number"),
             sized15(),
             FutureBuilder<Users?>(
               future: readUser(),
