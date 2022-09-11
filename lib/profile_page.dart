@@ -45,27 +45,27 @@ class ProfilePage extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
+                            const Text(
                               "Name",
                               style: TextStyle(fontWeight: FontWeight.w400, fontSize: 18.0),
                             ),
                             Text(
                               "${user.fullName}",
-                              style: TextStyle(fontWeight: FontWeight.w400, fontSize: 18.0),
+                              style:  const TextStyle(fontWeight: FontWeight.w400, fontSize: 18.0),
                             ),
                           ],
                         ),
-                        Divider(),
+                        const Divider(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
+                            const Text(
                               "Email",
                               style: TextStyle(fontWeight: FontWeight.w400, fontSize: 18.0),
                             ),
                             Text(
                               "${user.email}",
-                              style: TextStyle(fontWeight: FontWeight.w400, fontSize: 18.0),
+                              style: const TextStyle(fontWeight: FontWeight.w400, fontSize: 18.0),
                             ),
                           ],
                         ),

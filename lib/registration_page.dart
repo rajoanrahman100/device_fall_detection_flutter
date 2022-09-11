@@ -65,7 +65,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
               TextFieldWidget(
                 textEditingController: numberController,
                 inputType: TextInputType.number,
-                isObsecure: true,
+                isObsecure: false,
               ),
               sized15(),
               sized15(),
@@ -75,9 +75,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     onPressed: () {
                       if (emailController.text.isEmpty &&
                           passwordController.text.isEmpty &&
-                          namedController.text.isEmpty &&
-                          numberController.text.isEmpty) {
+                          namedController.text.isEmpty) {
                         showToast(message: "Fill up all the fields", backColor: Colors.lightBlue);
+                        return;
+                      }else if(numberController.text.isEmpty){
+                        showToast(message: "Add a phone number", backColor: Colors.lightBlue);
                         return;
                       }
                       AuthService().signUpWithGoogle(

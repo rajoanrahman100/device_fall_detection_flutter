@@ -36,7 +36,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   DateTime? endTime;
   bool isBeingThrown = false;
   final double GRAVITATIONAL_FORCE = 9.80665;
-  final double DECELERATION_THRESHOLD = 4; // <---- experimental
+  final double DECELERATION_THRESHOLD = 10; // <---- experimental
   List<double> accelValuesForAnalysis = <double>[];
 
   var seconds = 10;
