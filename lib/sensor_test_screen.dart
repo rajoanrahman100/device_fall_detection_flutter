@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:math';
 
 import 'package:background_sms/background_sms.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_accelemotor_location/user_model.dart';
 import 'package:flutter_accelemotor_location/utils.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
@@ -36,12 +38,17 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   DateTime? endTime;
   bool isBeingThrown = false;
   final double GRAVITATIONAL_FORCE = 9.80665;
-  final double DECELERATION_THRESHOLD = 10; // <---- experimental
+  final double DECELERATION_THRESHOLD = 4; // <---- experimental
   List<double> accelValuesForAnalysis = <double>[];
 
   var seconds = 10;
 
   var timerC = Get.put(TimerController());
+
+  String? userName;
+  String? uid;
+
+  int smsCount = 0;
 
   Future<Users?> readUser() async {
     final docUser = FirebaseFirestore.instance.collection("users").doc(boxStorage.read(UID));
@@ -52,9 +59,46 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
     }
   }
 
+  Future getUserName() async {
+    final docUser = FirebaseFirestore.instance.collection("users").doc(boxStorage.read(UID));
+    final snapShot = await docUser.get();
+
+    if (snapShot.exists) {
+      Users data = Users.fromJson(snapShot.data()!);
+      userName = data.fullName;
+      uid = data.uid;
+      print("User Full name $userName");
+    }
+  }
+
+  callBack() {
+    print("-------------------CALLING-----------------------");
+  }
+
+  stopCallBack() {
+    print("-------------------STOP CALLING-----------------------");
+  }
+
+  Future<void> addActivity(uid) {
+    // Call the user's CollectionReference to add a new user
+    CollectionReference users = FirebaseFirestore.instance.collection('activity');
+
+    return users
+        .add({
+          'fall_date': DateFormat.yMd().format(DateTime.now()).toString(), // John Doe
+          'fall_time': DateFormat.Hm().format(DateTime.now()).toString(), // Stokes and Sons
+          'uid': uid // 42
+        })
+        .then((value) => print("------------------------Activity Added-----------------"))
+        .catchError((error) => print("Failed to add user: $error"));
+  }
+
   @override
   void initState() {
     WidgetsBinding.instance!.addObserver(this);
+
+    print("Todays date ${DateFormat.yMd().format(DateTime.now())}");
+    print("Current time ${DateFormat.Hm().format(DateTime.now())}");
 
     // _streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) {
     //     if (isBeingThrown) {
@@ -74,6 +118,8 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
     //     }
     //   }
     // }));
+
+    getUserName();
 
     super.initState();
   }
@@ -111,20 +157,32 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
           double accelMinusGravity = totalXYZAcceleration - GRAVITATIONAL_FORCE;
 
           accelValuesForAnalysis.add(accelMinusGravity);
-          print("Calculation ${accelMinusGravity.toString()}");
+          print("Accel Minus Gravity ${accelMinusGravity.toString()}");
 
           if (accelMinusGravity > DECELERATION_THRESHOLD) {
+            print("Calculationssssssssss ${accelValuesForAnalysis.toString()}");
+
+            smsCount = smsCount + 1;
+            if (await _isPermissionGranted()) {
+              // _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "$userName is in danger.\n Please help him.\nHis location\n${timerC.mapUrl.value}");
+              smsCount > 4
+                  ? stopCallBack()
+                  : _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "$userName is in danger.\nPlease help him.\nHis location\n${timerC.mapUrl.value}");
+            }
+
+            addActivity(uid);
+
             // isBeingThrown = false;
             endTime = DateTime.now();
             Duration totalTime = DateTime.now().difference(startTime!);
             double totalTimeInSeconds = totalTime.inMilliseconds / 1000;
             double heightInMeters = (GRAVITATIONAL_FORCE * pow(totalTimeInSeconds, 2)) / 8;
 
-            if (await _isPermissionGranted()) {
-              _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "This is user's current location\n${timerC.mapUrl.value}");
-            }
+            /*if (await _isPermissionGranted()) {
+              // _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "$userName is in danger.\n Please help him.\nHis location\n${timerC.mapUrl.value}");
+              _sendMessage("123456", "$userName is in danger.\nPlease help him.\nHis location\n${timerC.mapUrl.value}");
+            }*/
 
-            print("Calculationssssssssss ${accelValuesForAnalysis.toString()}");
           }
         }
       }));
@@ -255,7 +313,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
     print("UID ${boxStorage.read(UID)}");
 
     return Scaffold(
-      backgroundColor: Colors.white,
+        backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0.0,
@@ -264,7 +322,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
                 onPressed: () async {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const ProfilePage()),
+                    MaterialPageRoute(builder: (context) =>  ProfilePage()),
                   );
                   //await FirebaseAuth.instance.signOut();
                 },
@@ -372,6 +430,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
                       : GestureDetector(
                           onTap: () {
                             isBeingThrown = false;
+                            smsCount = 0;
                             setState(() {});
                           },
                           child: AnimatedContainer(
