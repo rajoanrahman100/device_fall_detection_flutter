@@ -2,7 +2,6 @@ import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_accelemotor_location/sensor_test_screen.dart';
 import 'package:flutter_accelemotor_location/timer_controller.dart';
@@ -39,7 +38,7 @@ class AuthService {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (BuildContext context, snapshot) {
         if (snapshot.hasData) {
-          return const SensorTestScreen();
+          return SensorTestScreen();
         } else {
           return const LoginPage();
         }
@@ -66,7 +65,7 @@ class AuthService {
       timerC.showRegInLoad.value=false;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const SensorTestScreen()),
+        MaterialPageRoute(builder: (context) =>SensorTestScreen()),
       );
     } on FirebaseAuthException catch (e) {
       timerC.showRegInLoad.value=false;
@@ -97,7 +96,7 @@ class AuthService {
       boxStorage.write(UID, credential.user?.uid);
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const SensorTestScreen()),
+        MaterialPageRoute(builder: (context) =>SensorTestScreen()),
       );
       log(" $credential");
     } on FirebaseAuthException catch (e) {

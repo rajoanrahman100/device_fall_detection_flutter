@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 import 'dart:math';
-
 import 'package:background_sms/background_sms.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -14,11 +14,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-
 import 'log_in_page.dart';
+import 'notifications/localnotification_service.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
+
 
 class SensorTestScreen extends StatefulWidget {
-  const SensorTestScreen({Key? key}) : super(key: key);
+  var payLoad;
+
+
+  SensorTestScreen({this.payLoad});
 
   @override
   _SensorTestScreenState createState() => _SensorTestScreenState();
@@ -38,7 +44,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   DateTime? endTime;
   bool isBeingThrown = false;
   final double GRAVITATIONAL_FORCE = 9.80665;
-  final double DECELERATION_THRESHOLD = 4; // <---- experimental
+  final double DECELERATION_THRESHOLD = 7; // <---- experimental
   List<double> accelValuesForAnalysis = <double>[];
 
   var seconds = 10;
@@ -49,6 +55,15 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
   String? uid;
 
   int smsCount = 0;
+
+  Timer? timer;
+
+  //Notification Service
+  late final LocalNotificationService service;
+
+  void stopTimer() {
+    timer?.cancel();
+  }
 
   Future<Users?> readUser() async {
     final docUser = FirebaseFirestore.instance.collection("users").doc(boxStorage.read(UID));
@@ -95,29 +110,19 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
 
   @override
   void initState() {
+
+    print("Payload ${widget.payLoad}");
+
+   // widget.payLoad=="payload navigation"?isBeingThrown=false:null;
+
     WidgetsBinding.instance!.addObserver(this);
+
+    service = LocalNotificationService();
+    listenNotification();
+    service.intialize();
 
     print("Todays date ${DateFormat.yMd().format(DateTime.now())}");
     print("Current time ${DateFormat.Hm().format(DateTime.now())}");
-
-    // _streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) {
-    //     if (isBeingThrown) {
-    //     double x_total = pow(event.x, 2).toDouble();
-    //     double y_total = pow(event.y, 2).toDouble();
-    //     double z_total = pow(event.z, 2).toDouble();
-    //
-    //     double totalXYZAcceleration = sqrt(x_total + y_total + z_total);
-    //
-    //     // only needed because we are not using UserAccelerometerEvent
-    //     // (because it was acting weird on my test phone Galaxy S5)
-    //     double accelMinusGravity = totalXYZAcceleration - GRAVITATIONAL_FORCE;
-    //
-    //     accelValuesForAnalysis.add(accelMinusGravity);
-    //     if (accelMinusGravity > DECELERATION_THRESHOLD) {
-    //       _throwHasEnded();
-    //     }
-    //   }
-    // }));
 
     getUserName();
 
@@ -151,9 +156,6 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
           double z_total = pow(event.z, 2).toDouble();
 
           double totalXYZAcceleration = sqrt(x_total + y_total + z_total);
-
-          // only needed because we are not using UserAccelerometerEvent
-          // (because it was acting weird on my test phone Galaxy S5)
           double accelMinusGravity = totalXYZAcceleration - GRAVITATIONAL_FORCE;
 
           accelValuesForAnalysis.add(accelMinusGravity);
@@ -162,13 +164,25 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
           if (accelMinusGravity > DECELERATION_THRESHOLD) {
             print("Calculationssssssssss ${accelValuesForAnalysis.toString()}");
 
-            smsCount = smsCount + 1;
-            if (await _isPermissionGranted()) {
-              // _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "$userName is in danger.\n Please help him.\nHis location\n${timerC.mapUrl.value}");
-              smsCount > 4
-                  ? stopCallBack()
-                  : _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "$userName is in danger.\nPlease help him.\nHis location\n${timerC.mapUrl.value}");
-            }
+
+
+            await service.showPayloadNotification(id: 0, title: "A device fall is detected", body: "'Tap' if you are okay",payload: "payload navigation");
+
+             /*timer = Timer(Duration(seconds: 5), () {
+              print("CALLING");
+            });*/
+
+            timer=Timer(Duration(seconds: 10), () async {
+              print('delayed execution after 10');
+              smsCount = smsCount + 1;
+              if (await _isPermissionGranted()) {
+                smsCount > 3
+                    ? stopCallBack()
+                    : _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "$userName is in danger.\nPlease help him.\nHis/Her location\n${timerC.mapUrl.value}");
+              }
+            });
+
+
 
             addActivity(uid);
 
@@ -178,14 +192,15 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
             double totalTimeInSeconds = totalTime.inMilliseconds / 1000;
             double heightInMeters = (GRAVITATIONAL_FORCE * pow(totalTimeInSeconds, 2)) / 8;
 
-            /*if (await _isPermissionGranted()) {
-              // _sendMessage("${boxStorage.read(SAVED_NUMBER)}", "$userName is in danger.\n Please help him.\nHis location\n${timerC.mapUrl.value}");
-              _sendMessage("123456", "$userName is in danger.\nPlease help him.\nHis location\n${timerC.mapUrl.value}");
-            }*/
-
+          }
+        }else{
+          for (StreamSubscription<dynamic> subscription in _streamSubscriptions) {
+            subscription.cancel();
           }
         }
       }));
+    }else{
+
     }
   }
 
@@ -312,6 +327,9 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
 
     print("UID ${boxStorage.read(UID)}");
 
+
+    // widget.payLoad=="payload navigation"?isBeingThrown=false:null;
+
     return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -431,6 +449,7 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
                           onTap: () {
                             isBeingThrown = false;
                             smsCount = 0;
+                            timer!.cancel();
                             setState(() {});
                           },
                           child: AnimatedContainer(
@@ -480,5 +499,26 @@ class _SensorTestScreenState extends State<SensorTestScreen> with WidgetsBinding
             ),
           ],
         )));
+  }
+
+  void listenNotification() => service.onNotificationClick.stream.listen(onNotificationListener);
+
+  void onNotificationListener(String? payload) async{
+    if(payload!=null&&payload.isNotEmpty){
+      print('payload $payload');
+
+      if (Platform.isAndroid) {
+        final AndroidIntent intent = AndroidIntent(
+          action: 'action_view',
+          data: 'com.example.flutter_accelemotor_location', // replace com.example.app with your applicationId
+        );
+        await intent.launch();
+      }
+
+      // Navigator.push(
+      //   context,
+      //   MaterialPageRoute(builder: (context) => SensorTestScreen(payLoad: payload ,)),
+      // );
+    }
   }
 }
