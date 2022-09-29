@@ -14,7 +14,8 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
+
+      appBar: AppBar( //App Bar Portion
         backgroundColor: Colors.white,
         elevation: 0.0,
         actions: [],
@@ -31,7 +32,7 @@ class ProfilePage extends StatelessWidget {
         ),
       ),
       body: FutureBuilder<Users?>(
-        future: readUser(),
+        future: readUser(), //Method to get profile data
         builder: (context, snapshot) {
           if (snapshot.hasData) {
             final user = snapshot.data;
@@ -96,6 +97,7 @@ class ProfilePage extends StatelessWidget {
                                 ),
                               ),
                               StreamBuilder<QuerySnapshot>(
+                                //This is the query we perform for fetching activity log from "activity" collection.We have filtered via our unique UID
                                 stream: FirebaseFirestore.instance.collection("activity").where('uid',isEqualTo: boxStorage.read(UID)).snapshots(),
                                 builder: (context,snapshot){
                                   if(snapshot.connectionState==ConnectionState.waiting){
@@ -105,7 +107,7 @@ class ProfilePage extends StatelessWidget {
                                     if(snapshot.data!.docs.isNotEmpty){
                                       return ListView.builder(
                                         shrinkWrap: true,
-                                        physics: NeverScrollableScrollPhysics(),
+                                        physics: const NeverScrollableScrollPhysics(),
                                         itemCount: snapshot.data!.docs.length,
                                         itemBuilder: (_,index){
                                           return Column(
@@ -137,6 +139,7 @@ class ProfilePage extends StatelessWidget {
                           height: 45,
                           minWidth: double.infinity,
                           onPressed: () async {
+                            //Signing out from the app and user will land on Login page
                             await FirebaseAuth.instance.signOut();
                             Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginPage()), (route) => false);
                           },
@@ -164,8 +167,9 @@ class ProfilePage extends StatelessWidget {
 
 
 
+  //Function from where we are fetching data and show it this page
   Future<Users?> readUser() async {
-    final docUser = FirebaseFirestore.instance.collection("users").doc(boxStorage.read(UID));
+    final docUser = FirebaseFirestore.instance.collection("users").doc(boxStorage.read(UID)); //"user" our collection name
     final snapShot = await docUser.get();
 
     if (snapShot.exists) {

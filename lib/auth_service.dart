@@ -18,6 +18,7 @@ class AuthService {
 
 
 
+
   Future<void> addUser(name, email, uid,number) {
     // Call the user's CollectionReference to add a new user
     DocumentReference users = FirebaseFirestore.instance.collection('users').doc(uid);
@@ -38,29 +39,30 @@ class AuthService {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (BuildContext context, snapshot) {
         if (snapshot.hasData) {
+          //If user is login, the user will land on this page
           return SensorTestScreen();
         } else {
+          //Otherwise this Login page
           return const LoginPage();
         }
       },
     );
   }
 
+  //Register in with email and password method
   signUpWithGoogle(name,email, pass, context,number,TimerController timerC) async {
 
 
     timerC.showRegInLoad.value=true;
 
     try {
+      //Create user function
       UserCredential credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: pass,
       );
-
-
       addUser(name,email,credential.user?.uid,number);
       boxStorage.write(UID, credential.user?.uid);
-      //log("Userssss$credential");
       showToast(message: 'Registration Successful', backColor: Colors.green);
       timerC.showRegInLoad.value=false;
       Navigator.push(
@@ -81,10 +83,10 @@ class AuthService {
     }
   }
 
+  //Login in with email and password method
   signInWithGoogle(email, pass,TimerController timerC,context) async {
 
     timerC.showSignInLoad.value=true;
-
 
     try {
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -94,6 +96,7 @@ class AuthService {
       timerC.showSignInLoad.value=false;
       showToast(message: 'Login Successful', backColor: Colors.green);
       boxStorage.write(UID, credential.user?.uid);
+      //IF sign in successful, user will be landing on sensor test page
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) =>SensorTestScreen()),

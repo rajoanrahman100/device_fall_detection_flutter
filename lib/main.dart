@@ -25,120 +25,11 @@ void main()async {
   await Firebase.initializeApp();
   await GetStorage.init();
 
-  // await initializeService();
+  // Tha main function which call first
   runApp(const MyApp());
 }
 
-Future<void> initializeService() async {
-  final service = FlutterBackgroundService();
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      // this will be executed when app is in foreground or background in separated isolate
-      onStart: onStart,
 
-      // auto start service
-      autoStart: true,
-      isForegroundMode: true,
-    ),
-    iosConfiguration: IosConfiguration(
-      // auto start service
-      autoStart: true,
-
-      // this will be executed when app is in foreground in separated isolate
-      onForeground: onStart,
-
-      // you have to enable background fetch capability on xcode project
-      onBackground: onIosBackground,
-    ),
-  );
-  service.startService();
-}
-
-bool onIosBackground(ServiceInstance service) {
-  WidgetsFlutterBinding.ensureInitialized();
-  print('FLUTTER BACKGROUND FETCH');
-
-  return true;
-}
-
-void onStart(ServiceInstance service) async {
-  // Only available for flutter 3.0.0 and later
-  // DartPluginRegistrant.ensureInitialized();
-
-  // For flutter prior to version 3.0.0
-  // We have to register the plugin manually
-
-  // SharedPreferences preferences = await SharedPreferences.getInstance();
-  // await preferences.setString("hello", "world");
-  final Telephony telephony = Telephony.instance;
-
-  if (service is AndroidServiceInstance) {
-    service.on('setAsForeground').listen((event) {
-      service.setAsForegroundService();
-      print("AS FOREGROUND");
-    });
-
-    service.on('setAsBackground').listen((event) {
-      service.setAsBackgroundService();
-      print("AS BACKGROUND");
-    });
-  }
-
-  service.on('stopService').listen((event) {
-    service.stopSelf();
-  });
-
-  // bring to foreground
-  Timer.periodic(const Duration(seconds: 5), (timer) async {
-
-
-    if (service is AndroidServiceInstance) {
-      service.setForegroundNotificationInfo(
-        title: "My App Service",
-        content: "Updated at ${DateTime.now()}",
-      );
-    }
-
-
-
-    telephony.sendSms(message: "From Background", to: "123456",statusListener: (SendStatus val) {
-      if (val.toString() == "SendStatus.SENT") {
-        print("SENDING");
-        showToast(message: "SMS SENDING....",backColor: Colors.green);
-      } else if (val.toString() == "SendStatus.DELIVERED") {
-        print("SUCCESS");
-        showToast(message: "SMS SUCCESSFULLY SEND",backColor: Colors.green);
-      } else {
-        showToast(message: "SMS SENS FAILED",backColor: Colors.red);
-        print("FAILED");
-      }
-    });
-
-    /// you can see this log in logcat
-    print('FLUTTER BACKGROUND SERVICE: ${DateTime.now()}');
-
-    // test using external plugin
-    final deviceInfo = DeviceInfoPlugin();
-    String? device;
-    if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
-      device = androidInfo.model;
-    }
-
-    if (Platform.isIOS) {
-      final iosInfo = await deviceInfo.iosInfo;
-      device = iosInfo.model;
-    }
-
-    service.invoke(
-      'update',
-      {
-        "current_date": DateTime.now().toIso8601String(),
-        "device": device,
-      },
-    );
-  });
-}
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -149,7 +40,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
-      home: AuthService().handleAuthState(),
+      home: AuthService().handleAuthState(), //Check the authentication state of the user
     );
   }
 }
