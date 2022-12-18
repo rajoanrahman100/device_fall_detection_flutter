@@ -38,7 +38,7 @@ dependencies:
   google_fonts:
   get: ^4.6.5
   flutter_sms: ^2.3.3
-  telephony: ^0.1.1
+  telephony: ^0.2.0
   geolocator: ^9.0.1
   fluttertoast: ^8.0.9
   flutter_background_service: ^2.1.3
